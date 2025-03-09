@@ -14,6 +14,4 @@ normalize prices using moving averages, converting ohlc values to percentage fro
 
 normalize by using previous day ohlc, or median
 
-# TODO
-
-FIX CONDITION CHECK FUNCTION
+# T2 is main
