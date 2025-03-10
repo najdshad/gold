@@ -12,3 +12,4 @@ normalize by using previous day ohlc, or median
 # T2 is main
 ADD EMA, ATR AS FEATURES
 EXPERIMENT WITH RSI, OR OTHER INDICATORS/OSCILATORS
+NORMALIZE PRICE
