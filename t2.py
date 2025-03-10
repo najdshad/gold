@@ -6,6 +6,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 
+
+# Check for GPU
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class NTT(nn.Module):
     def __init__(self, input_dim=4, d_model=64, nhead=4, num_layers=4, dropout=0.1):
         super(NTT, self).__init__()
@@ -16,15 +19,23 @@ class NTT(nn.Module):
         self.transformer_encoder = nn.TransformerEncoder(encoder_layers, num_layers=num_layers)
 
         self.classifier = nn.Sequential(
-            nn.Linear(d_model, 64),
+            nn.Linear(d_model, 128),
             nn.ReLU(),
-            nn.Linear(64, 3)  # 3 classes: long, short, no trade
+            nn.Dropout(dropout),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(64, 3) # 0,1,2 for order_type
         )
 
     def forward(self, x):
-        x = self.embedding(x) + self.pos_encoder[:, :x.size(1), :]
+        # x shape: (batch_size, seq_len, input_dim)
+        x = self.embedding(x)  # (batch_size, seq_len, d_model)
+        x = x + self.pos_encoder[:, :x.size(1), :]
+        x = x.permute(1, 0, 2)  # Change to (seq_len, batch_size, d_model)
         x = self.transformer_encoder(x)
-        x = x[:, -1, :]  # Take the last time step's output
+        x = x.permute(1, 0, 2)  # Back to (batch_size, seq_len, d_model)
+        x = x[:, -1, :]  # Take last time step
         return self.classifier(x)
 
 class OHLCDataset(Dataset):
@@ -42,14 +53,14 @@ class OHLCDataset(Dataset):
 
 # Hyperparameters
 input_dim = 4  # OHLC
-sequence_length = 50
+sequence_length = 250
 d_model = 64
 nhead = 4
 num_layers = 4
 dropout = 0.1
 
 # Model
-model = NTT(input_dim, d_model, nhead, num_layers, dropout)
+model = NTT(input_dim, d_model, nhead, num_layers, dropout).to(device)
 
 # Loss and optimizer
 criterion = nn.CrossEntropyLoss()
@@ -68,7 +79,7 @@ train_dataset = OHLCDataset(train_data)
 val_dataset = OHLCDataset(val_data)
 test_dataset = OHLCDataset(test_data)
 
-train_dataloader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+train_dataloader = DataLoader(train_dataset, batch_size=32, shuffle=False)
 val_dataloader = DataLoader(val_dataset, batch_size=32, shuffle=False)
 test_dataloader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
@@ -79,6 +90,7 @@ val_losses = []
 for epoch in range(10):
     model.train()
     for x_batch, y_batch in train_dataloader:
+        x_batch, y_batch = x_batch.to(device), y_batch.to(device)
         optimizer.zero_grad()
         outputs = model(x_batch)
         loss = criterion(outputs, y_batch)
@@ -92,6 +104,7 @@ for epoch in range(10):
     val_loss = 0
     with torch.no_grad():
         for x_val, y_val in val_dataloader:
+            x_val, y_val = x_val.to(device), y_val.to(device)
             val_outputs = model(x_val)
             val_loss += criterion(val_outputs, y_val).item()
 
