@@ -87,7 +87,7 @@ test_dataloader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 train_losses = []
 val_losses = []
 
-for epoch in range(10):
+for epoch in range(100):
     model.train()
     for x_batch, y_batch in train_dataloader:
         x_batch, y_batch = x_batch.to(device), y_batch.to(device)
