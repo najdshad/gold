@@ -1,3 +1,4 @@
 Data/
-Processed_Data/
 *.pth
+*.xlsx
+*.csv
